@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "com.noodlegamer76.noodleengine.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mixins.noodleengine.refmap.json",
+  "mixins": [
+  ],
+  "client": [
+    "accessor.LightTextureAccessor",
+    "accessor.VertexBufferAccessor"
+  ],
+  "minVersion": "0.8"
+}
