@@ -25,9 +25,7 @@ public class GltfPrimitiveUtils {
             ResourceLocation location = generateLocation(model.location, meshModel, i, "meshes");
             List<PrimitiveData> prims = convertPrimitives(meshModel, location, model);
 
-            Mesh mesh = model.gltf.getMeshes().get(i);
-
-            MeshData meshData = new MeshData(model, mesh, prims, location);
+            MeshData meshData = new MeshData(model, meshModel, prims, location);
 
             meshes.add(meshData);
 
@@ -54,6 +52,21 @@ public class GltfPrimitiveUtils {
         float[] normals = GltfAccessorUtils.getFloatArray(prim.getAttributes().get("NORMAL"));
         int[] indices = GltfAccessorUtils.getIndexArray(prim.getIndices());
 
+        AccessorModel jointsAccessor = prim.getAttributes().get("JOINTS_0");
+        int[] rawJoints = jointsAccessor != null ? GltfAccessorUtils.getJointIndexArray(jointsAccessor) : null;
+
+        AccessorModel weightsAccessor = prim.getAttributes().get("WEIGHTS_0");
+        float[] rawWeights = weightsAccessor != null ? GltfAccessorUtils.getFloatArray(weightsAccessor) : null;
+
+        Map<Integer, float[]> uvLayers = new HashMap<>();
+        for (Map.Entry<String, AccessorModel> entry : prim.getAttributes().entrySet()) {
+            String key = entry.getKey();
+            if (key.toUpperCase().startsWith("TEXCOORD")) {
+                int layer = Integer.parseInt(key.replace("TEXCOORD_", ""));
+                uvLayers.put(layer, GltfAccessorUtils.getFloatArray(entry.getValue()));
+            }
+        }
+
         List<Vertex> vertices = new ArrayList<>();
         int vertexCount = positions.length / 3;
 
@@ -66,38 +79,34 @@ public class GltfPrimitiveUtils {
             float ny = normals != null ? normals[i * 3 + 1] : 1f;
             float nz = normals != null ? normals[i * 3 + 2] : 0f;
 
+            // Build UV map for this vertex
             Map<Integer, Vector2f> vertexUVs = new HashMap<>();
-            for (String key : prim.getAttributes().keySet()) {
-                if (key.toUpperCase().startsWith("TEXCOORD")) {
-                    float[] uvArray = GltfAccessorUtils.getFloatArray(prim.getAttributes().get(key));
-                    vertexUVs.put(Integer.parseInt(key.replaceAll("TEXCOORD_", "")), new Vector2f(uvArray[i*2], uvArray[i*2 + 1]));
-                }
+            for (Map.Entry<Integer, float[]> uvEntry : uvLayers.entrySet()) {
+                int layer = uvEntry.getKey();
+                float[] uvArray = uvEntry.getValue();
+                vertexUVs.put(layer, new Vector2f(uvArray[i * 2], uvArray[i * 2 + 1]));
             }
 
-            // joints
-            float[] jointIndices = new float[] {0, 0, 0, 0};
-            AccessorModel jointsAccessor = prim.getAttributes().get("JOINTS_0");
-            if (jointsAccessor != null) {
-                int[] raw = GltfAccessorUtils.getJointIndexArray(jointsAccessor);
+            // Build joints
+            float[] jointIndices = new float[4];
+            if (rawJoints != null) {
                 for (int j = 0; j < 4; j++) {
-                    jointIndices[j] = raw[i*4 + j];
+                    jointIndices[j] = rawJoints[i * 4 + j];
                 }
             }
 
-            // weights
+            // Build weights
             float[] weights = new float[4];
-            AccessorModel weightsAccessor = prim.getAttributes().get("WEIGHTS_0");
-            if (weightsAccessor != null) {
-                float[] rawW = GltfAccessorUtils.getFloatArray(weightsAccessor);
+            if (rawWeights != null) {
                 for (int j = 0; j < 4; j++) {
                     int idx = i * 4 + j;
-                    weights[j] = idx < rawW.length ? rawW[idx] : 0f;
+                    weights[j] = idx < rawWeights.length ? rawWeights[idx] : 0f;
                 }
             } else {
                 weights[0] = 1f;
             }
 
-            // normalize weights
+            // Normalize weights
             float sum = weights[0] + weights[1] + weights[2] + weights[3];
             if (sum > 0f) {
                 for (int j = 0; j < 4; j++) weights[j] /= sum;
@@ -106,9 +115,7 @@ public class GltfPrimitiveUtils {
             vertices.add(new Vertex(x, y, z, nx, ny, nz, vertexUVs, jointIndices, weights));
         }
 
-
         ResourceLocation location = generateLocation(meshLoc, prim, index, "primitives");
-        PrimitiveData data = new PrimitiveData(vertices, indices, location, model, prim);
-        return data;
+        return new PrimitiveData(vertices, indices, location, model, prim);
     }
 }

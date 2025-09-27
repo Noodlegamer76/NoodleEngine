@@ -23,14 +23,16 @@ import java.util.*;
 
 public class GltfMaterialUtils {
 
-    public static Map<Integer, McMaterial> loadMaterials(McGltf mcGltf) {
+    public static Map<Integer, McMaterial> loadMaterials(McGltf model) {
         Map<Integer, McMaterial> result = new HashMap<>();
         Map<ImageModel, ResourceLocation> textureCache = new HashMap<>();
 
-        GlTF gltf = mcGltf.gltf;
 
-        for (int i = 0; i < gltf.getMaterials().size(); i++) {
-            Material matV2 = gltf.getMaterials().get(i);
+
+        for (int i = 0; i < model.model.getMaterialModels().size(); i++) {
+            MaterialModel mat = model.model.getMaterialModels().get(i);
+            if (!(mat instanceof MaterialModelV2)) continue;
+            MaterialModelV2 matV2 = (MaterialModelV2) mat;
 
             String matName = matV2.getName();
             if (matName == null) matName = "gltf_material_" + matV2.hashCode();
@@ -38,52 +40,57 @@ public class GltfMaterialUtils {
             MaterialBuilder builder = new MaterialBuilder(ShaderRegistry.pbr, matName);
 
             // Base color
-            TextureInfo baseColor = matV2.getPbrMetallicRoughness().getBaseColorTexture();
+            TextureModel baseColor = matV2.getBaseColorTexture();
             if (baseColor != null) {
-                ResourceLocation tex = loadTexture(mcGltf.model.getTextureModels().get(baseColor.getIndex()), textureCache);
+                Integer texCoord = matV2.getBaseColorTexcoord();
+                ResourceLocation tex = loadTexture(baseColor, textureCache);
                 builder.set(MaterialProperty.ALBEDO_MAP, tex);
-                builder.setTexCoord(MaterialProperty.ALBEDO_MAP, baseColor.getTexCoord() == null ? 0 : baseColor.getTexCoord());
+                builder.setTexCoord(MaterialProperty.ALBEDO_MAP, texCoord == null ? 0 : texCoord);
             }
 
             // Metallic + Roughness
-            TextureInfo mr = matV2.getPbrMetallicRoughness().getMetallicRoughnessTexture();
+            TextureModel mr = matV2.getMetallicRoughnessTexture();
             if (mr != null) {
-                ResourceLocation tex = loadTexture(mcGltf.model.getTextureModels().get(mr.getIndex()), textureCache);
+                Integer texCoord = matV2.getMetallicRoughnessTexcoord();
+                ResourceLocation tex = loadTexture(mr, textureCache);
                 builder.set(MaterialProperty.METALLIC_MAP, tex);
                 builder.set(MaterialProperty.ROUGHNESS_MAP, tex);
-                builder.setTexCoord(MaterialProperty.METALLIC_MAP, mr.getTexCoord() == null ? 0 : mr.getTexCoord());
+                builder.setTexCoord(MaterialProperty.METALLIC_MAP, texCoord == null ? 0 : texCoord);
             }
 
             // Normal map
-            TextureInfo normal = matV2.getNormalTexture();
+            TextureModel normal = matV2.getNormalTexture();
             if (normal != null) {
-                ResourceLocation tex = loadTexture(mcGltf.model.getTextureModels().get(normal.getIndex()), textureCache);
+                Integer texCoord = matV2.getNormalTexcoord();
+                ResourceLocation tex = loadTexture(normal, textureCache);
                 builder.set(MaterialProperty.NORMAL_MAP, tex);
-                builder.setTexCoord(MaterialProperty.NORMAL_MAP, normal.getTexCoord() == null ? 0 : normal.getTexCoord());
+                builder.setTexCoord(MaterialProperty.NORMAL_MAP, texCoord == null ? 0 : texCoord);
             }
 
             // Occlusion map
-            TextureInfo ao = matV2.getOcclusionTexture();
+            TextureModel ao = matV2.getOcclusionTexture();
             if (ao != null) {
-                ResourceLocation tex = loadTexture(mcGltf.model.getTextureModels().get(ao.getIndex()), textureCache);
+                Integer texCoord = matV2.getOcclusionTexcoord();
+                ResourceLocation tex = loadTexture(ao, textureCache);
                 builder.set(MaterialProperty.AO_MAP, tex);
-                builder.setTexCoord(MaterialProperty.AO_MAP, ao.getTexCoord() == null ? 0 : ao.getTexCoord());
+                builder.setTexCoord(MaterialProperty.AO_MAP, texCoord == null ? 0 : texCoord);
             }
 
             // Emissive map
-            TextureInfo emissive = matV2.getEmissiveTexture();
+            TextureModel emissive = matV2.getEmissiveTexture();
             if (emissive != null) {
-                ResourceLocation tex = loadTexture(mcGltf.model.getTextureModels().get(emissive.getIndex()), textureCache);
+                Integer texCoord = matV2.getEmissiveTexcoord();
+                ResourceLocation tex = loadTexture(emissive, textureCache);
                 builder.set(MaterialProperty.EMISSIVE_MAP, tex);
-                builder.setTexCoord(MaterialProperty.EMISSIVE_MAP, emissive.getTexCoord() == null ? 0 : emissive.getTexCoord());
+                builder.setTexCoord(MaterialProperty.EMISSIVE_MAP, texCoord == null ? 0 : texCoord);
             }
 
             // Transparency
             //builder.transparent(MaterialAlphaMode.isBlend(matV2.getAlphaMode()));
 
-            builder.set(MaterialProperty.AO, matV2.getOcclusionTexture() == null || matV2.getOcclusionTexture().getStrength() == null ? 1 : matV2.getOcclusionTexture().getStrength());
+            builder.set(MaterialProperty.AO, matV2.getOcclusionStrength());
 
-            float[] baseColorFactor = matV2.getPbrMetallicRoughness().getBaseColorFactor();
+            float[] baseColorFactor = matV2.getBaseColorFactor();
             Vector4f color;
             if (baseColorFactor == null) color = new Vector4f(1, 1, 1, 1);
             else color = new Vector4f(baseColorFactor[0], baseColorFactor[1], baseColorFactor[2], baseColorFactor[3]);
@@ -101,16 +108,14 @@ public class GltfMaterialUtils {
         return result;
     }
 
-    public static void assignMaterials(McGltf mcGltf, Map<Integer, McMaterial> materials) {
-        GlTF gltf = mcGltf.gltf;
-
-        for (int i = 0; i < gltf.getMeshes().size(); i++) {
-            MeshData meshData = mcGltf.meshes.get(i);
+    public static void assignMaterials(McGltf model, Map<Integer, McMaterial> materials) {
+        for (int i = 0; i < model.meshes.size(); i++) {
+            MeshData meshData = model.meshes.get(i);
 
             for (int j = 0; j < meshData.getPrimitives().size(); j++) {
                 PrimitiveData primitiveData = meshData.getPrimitives().get(j);
 
-                MaterialModel matModel = mcGltf.model
+                MaterialModel matModel = model.model
                         .getMeshModels().get(i)
                         .getMeshPrimitiveModels().get(j)
                         .getMaterialModel();
@@ -120,7 +125,7 @@ public class GltfMaterialUtils {
                 String matName = matModel.getName();
                 if (matName == null) matName = "gltf_material_" + matModel.hashCode();
 
-                McMaterial mcMat = materials.get(mcGltf.model.getMaterialModels().indexOf(matModel));
+                McMaterial mcMat = materials.get(model.model.getMaterialModels().indexOf(matModel));
                 if (mcMat == null) continue;
 
                 primitiveData.setMaterial(mcMat);

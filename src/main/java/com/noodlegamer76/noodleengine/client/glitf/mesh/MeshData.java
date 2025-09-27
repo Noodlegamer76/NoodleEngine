@@ -15,14 +15,14 @@ public class MeshData {
     private final List<PrimitiveData> primitives;
     private final ResourceLocation meshLocation;
     private final McGltf model;
-    private final Mesh mesh;
+    private final MeshModel meshModel;
     public final List<SkinUbo> availableSkins = new ArrayList<>();
 
-    public MeshData(McGltf model, Mesh mesh, List<PrimitiveData> primitives, ResourceLocation meshLocation) {
+    public MeshData(McGltf model, MeshModel meshModel, List<PrimitiveData> primitives, ResourceLocation meshLocation) {
         this.primitives = primitives;
         this.meshLocation = meshLocation;
         this.model = model;
-        this.mesh = mesh;
+        this.meshModel = meshModel;
     }
 
     public McGltf getModel() {
@@ -37,7 +37,7 @@ public class MeshData {
         return meshLocation;
     }
 
-    public Mesh getMesh() {
-        return mesh;
+    public MeshModel getMeshModel() {
+        return meshModel;
     }
 }

@@ -25,7 +25,6 @@ import java.util.Map;
 
 public class McGltf {
     public final GltfModel model;
-    public final GlTF gltf;
     public final ResourceLocation location;
     public final List<MeshData> meshes = new ArrayList<>();
     public final Map<McMaterial, GltfVbo> vboMap = new HashMap<>();
@@ -35,10 +34,12 @@ public class McGltf {
     public final List<GltfAnimation> animations = new ArrayList<>();
     public final List<Matrix4f> bindGlobalPose = new ArrayList<>();
     public final List<Matrix4f> bindLocalPose = new ArrayList<>();
+    public final List<NodeModel> nodes = new ArrayList<>();
+    public final Map<MeshModel, MeshData> meshModelToMeshData = new HashMap<>();
+    public final Map<MeshData, NodeModel> meshToNode = new HashMap<>();
 
-    public McGltf(GltfModel model, GlTF gltf, ResourceLocation location) {
+    public McGltf(GltfModel model, ResourceLocation location) {
         this.model = model;
-        this.gltf = gltf;
         this.location = location;
     }
 
@@ -53,12 +54,11 @@ public class McGltf {
     }
 
     public void renderMeshNode(PoseStack poseStack, int packedLight, @Nullable SkinUbo skinUbo, int nodeIndex) {
-        var node = gltf.getNodes().get(nodeIndex);
         NodeModel nodeModel = model.getNodeModels().get(nodeIndex);
         if (nodeModel.getMeshModels().isEmpty()) return;
         MeshModel meshModel = nodeModel.getMeshModels().get(0);
 
-        MeshData mesh = meshes.get(node.getMesh());
+        MeshData mesh = meshModelToMeshData.get(meshModel);
         for (PrimitiveData primitive : mesh.getPrimitives()) {
             McMaterial material = primitive.getMaterial();
             if (material == null) continue;

@@ -6,6 +6,8 @@ import com.noodlegamer76.noodleengine.client.glitf.animation.AnimationPlayer;
 import com.noodlegamer76.noodleengine.event.ShaderRegistry;
 import de.javagl.jgltf.impl.v2.Skin;
 import de.javagl.jgltf.model.AccessorModel;
+import de.javagl.jgltf.model.NodeModel;
+import de.javagl.jgltf.model.SkinModel;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -25,18 +27,18 @@ public class SkinUbo {
     private final int uboId;
     private final int maxJoints;
     private final FloatBuffer buffer;
-    private final Skin skin;
+    private final SkinModel skin;
     private final McGltf model;
     private final List<Matrix4f> inverseBindMatrices;
 
-    public SkinUbo(McGltf model, Skin skin, int nodeCount) {
+    public SkinUbo(McGltf model, SkinModel skin, int nodeCount) {
         this.maxJoints = nodeCount;
         this.skin = skin;
         this.model = model;
         this.buffer = BufferUtils.createFloatBuffer(nodeCount * 16);
 
         if (skin.getInverseBindMatrices() != null) {
-            AccessorModel accessor = model.model.getAccessorModels().get(skin.getInverseBindMatrices());
+            AccessorModel accessor = skin.getInverseBindMatrices();
             float[] floats = com.noodlegamer76.noodleengine.client.glitf.util.GltfAccessorUtils.getFloatArray(accessor);
 
             List<Matrix4f> list = new ArrayList<>();
@@ -126,10 +128,15 @@ public class SkinUbo {
             meshNodeInv = new Matrix4f(globals.get(skinnedNodeIndex)).invert();
         }
 
-        List<Integer> joints = skin.getJoints();
-        List<Matrix4f> skinning = new ArrayList<>(joints.size());
-        for (int i = 0; i < joints.size(); i++) {
-            int jointNodeIndex = joints.get(i);
+        List<Integer> jointNodeIndices = new ArrayList<>(skin.getJoints().size());
+        for (NodeModel jointNode : skin.getJoints()) {
+            int jointIndex = model.nodes.indexOf(jointNode);
+            jointNodeIndices.add(jointIndex);
+        }
+
+        List<Matrix4f> skinning = new ArrayList<>(jointNodeIndices.size());
+        for (int i = 0; i < jointNodeIndices.size(); i++) {
+            int jointNodeIndex = jointNodeIndices.get(i);
             if (jointNodeIndex < 0 || jointNodeIndex >= globals.size()) {
                 skinning.add(new Matrix4f().identity());
                 continue;
@@ -163,11 +170,15 @@ public class SkinUbo {
             meshNodeInv = new Matrix4f(nodeGlobalTransforms.get(skinnedNodeIndex)).invert();
         }
 
-        List<Integer> joints = skin.getJoints();
-        List<Matrix4f> skinning = new ArrayList<>(joints.size());
+        List<Integer> jointNodeIndices = new ArrayList<>(skin.getJoints().size());
+        for (NodeModel jointNode : skin.getJoints()) {
+            int jointIndex = model.nodes.indexOf(jointNode);
+            jointNodeIndices.add(jointIndex);
+        }
+        List<Matrix4f> skinning = new ArrayList<>(jointNodeIndices.size());
 
-        for (int i = 0; i < joints.size(); i++) {
-            int jointNodeIndex = joints.get(i);
+        for (int i = 0; i < jointNodeIndices.size(); i++) {
+            int jointNodeIndex = jointNodeIndices.get(i);
             Matrix4f jointGlobal = nodeGlobalTransforms.get(jointNodeIndex);
 
             Matrix4f jointMat = new Matrix4f(meshNodeInv)
@@ -202,8 +213,19 @@ public class SkinUbo {
         GL15.glDeleteBuffers(uboId);
     }
 
-    public int getMaxJoints() { return maxJoints; }
-    public int getUboId() { return uboId; }
-    public McGltf getModel() { return model; }
-    public Skin getSkin() { return skin; }
+    public int getMaxJoints() {
+        return maxJoints;
+    }
+
+    public int getUboId() {
+        return uboId;
+    }
+
+    public McGltf getModel() {
+        return model;
+    }
+
+    public SkinModel getSkin() {
+        return skin;
+    }
 }

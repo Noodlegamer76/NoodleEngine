@@ -10,6 +10,7 @@ import com.noodlegamer76.noodleengine.client.glitf.animation.GltfAnimation;
 import com.noodlegamer76.noodleengine.client.glitf.skin.SkinUbo;
 import com.noodlegamer76.noodleengine.client.glitf.util.GltfLoader;
 import com.noodlegamer76.noodleengine.tile.RenderTestTile;
+import de.javagl.jgltf.model.NodeModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -19,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public class RenderTestRenderer implements BlockEntityRenderer<RenderTestTile> {
@@ -86,14 +88,24 @@ public class RenderTestRenderer implements BlockEntityRenderer<RenderTestTile> {
         poseStack.pushPose();
         poseStack.translate(xOffset, 0.0f, 0.0f);
 
-        int nodeCount = gltfModel.gltf.getNodes().size();
+        int nodeCount = gltfModel.nodes.size();
 
         int[] nodeParents = new int[nodeCount];
+
         Arrays.fill(nodeParents, -1);
+
+        List<NodeModel> nodes = gltfModel.nodes;
+
         for (int i = 0; i < nodeCount; i++) {
-            var node = gltfModel.gltf.getNodes().get(i);
-            if (node.getChildren() != null) {
-                for (Integer child : node.getChildren()) nodeParents[child] = i;
+            NodeModel node = nodes.get(i);
+            List<NodeModel> children = node.getChildren();
+            if (children != null) {
+                for (NodeModel child : children) {
+                    int childIndex = nodes.indexOf(child);
+                    if (childIndex >= 0) {
+                        nodeParents[childIndex] = i;
+                    }
+                }
             }
         }
 
@@ -107,10 +119,10 @@ public class RenderTestRenderer implements BlockEntityRenderer<RenderTestTile> {
         if (!gltfModel.skins.isEmpty()) {
             SkinUbo ubo = gltfModel.skins.get(0);
 
-            int skinIndex = gltfModel.gltf.getSkins().indexOf(ubo.getSkin());
+            int skinIndex = gltfModel.skins.indexOf(ubo);
             for (int nodeIndex = 0; nodeIndex < nodeCount; nodeIndex++) {
-                var node = gltfModel.gltf.getNodes().get(nodeIndex);
-                if (node.getMesh() != null && node.getSkin() != null && node.getSkin() == skinIndex) {
+                NodeModel node = gltfModel.nodes.get(nodeIndex);
+                if (node.getMeshModels() != null && !node.getMeshModels().isEmpty() && node.getSkinModel() == ubo.getSkin()) {
                     ubo.uploadAnimated(gltfModel.bindLocalPose, animationTransforms, nodeParents, nodeIndex);
 
                     ubo.bindToShader(0);

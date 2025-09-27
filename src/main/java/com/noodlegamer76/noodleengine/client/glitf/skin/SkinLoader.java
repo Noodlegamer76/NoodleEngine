@@ -4,6 +4,8 @@ import com.noodlegamer76.noodleengine.client.glitf.McGltf;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.MeshData;
 import de.javagl.jgltf.impl.v2.Node;
 import de.javagl.jgltf.impl.v2.Skin;
+import de.javagl.jgltf.model.NodeModel;
+import de.javagl.jgltf.model.SkinModel;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL31;
 
@@ -15,15 +17,15 @@ import java.util.Map;
 public class SkinLoader {
 
     public static void loadSkins(McGltf model) {
-        if (model.gltf.getSkins() == null) return;
+        if (model.model.getSkinModels() == null) return;
 
         List<Matrix4f> bindGlobals = BindPoseUtils.buildBindPoseGlobals(model);
         model.bindGlobalPose.clear();
         model.bindGlobalPose.addAll(bindGlobals);
 
         List<SkinUbo> skinUbos = new ArrayList<>();
-        for (Skin skin : model.gltf.getSkins()) {
-            int nodeCount = model.gltf.getNodes().size();
+        for (SkinModel skin : model.model.getSkinModels()) {
+            int nodeCount = model.nodes.size();
             SkinUbo ubo = new SkinUbo(model, skin, nodeCount);
             skinUbos.add(ubo);
             model.skins.add(ubo);
@@ -34,12 +36,10 @@ public class SkinLoader {
             skins.put(mesh, new ArrayList<>());
         }
 
-        for (Node node : model.gltf.getNodes()) {
-            if (node.getMesh() != null && node.getSkin() != null) {
-                int meshIndex = node.getMesh();
-                int skinIndex = node.getSkin();
-                MeshData mesh = model.meshes.get(meshIndex);
-                SkinUbo skin = skinUbos.get(skinIndex);
+        for (NodeModel node : model.nodes) {
+            if (!node.getMeshModels().isEmpty() && node.getSkinModel() != null) {
+                MeshData mesh = model.meshModelToMeshData.get(node.getMeshModels().get(0));
+                SkinUbo skin = skinUbos.get(model.model.getSkinModels().indexOf(node.getSkinModel()));
 
                 skins.get(mesh).add(skin);
                 mesh.availableSkins.add(skin);
@@ -48,15 +48,11 @@ public class SkinLoader {
 
         model.skinsFromMesh.putAll(skins);
 
-        for (Node node : model.gltf.getNodes()) {
-            if (node.getMesh() != null && node.getSkin() != null) {
-                int meshIndex = node.getMesh();
-                int skinIndex = node.getSkin();
+        for (NodeModel node : model.nodes) {
+            if  (!node.getMeshModels().isEmpty() && node.getSkinModel() != null) {
+                SkinUbo skin = skinUbos.get(model.model.getSkinModels().indexOf(node.getSkinModel()));
 
-                MeshData mesh = model.meshes.get(meshIndex);
-                SkinUbo skin = skinUbos.get(skinIndex);
-
-                int nodeIndex = model.gltf.getNodes().indexOf(node);
+                int nodeIndex = model.nodes.indexOf(node);
                 skin.upload(bindGlobals, nodeIndex);
             }
         }

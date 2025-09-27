@@ -7,60 +7,63 @@ import de.javagl.jgltf.impl.v2.AnimationChannel;
 import de.javagl.jgltf.impl.v2.AnimationSampler;
 import de.javagl.jgltf.impl.v2.Node;
 import de.javagl.jgltf.model.AccessorModel;
+import de.javagl.jgltf.model.AnimationModel;
+import de.javagl.jgltf.model.NodeModel;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class AnimationLoader {
-
     public static void loadAnimations(McGltf model) {
-        if (model.gltf.getAnimations() == null) return;
+        if (model.model.getAnimationModels() == null || model.model.getAnimationModels().isEmpty()) return;
 
-        for (Animation anim : model.gltf.getAnimations()) {
+        List<NodeModel> nodeModels = model.model.getNodeModels();
+        java.util.Map<NodeModel, Integer> nodeIndexMap = new java.util.HashMap<>();
+        for (int i = 0; i < nodeModels.size(); i++) nodeIndexMap.put(nodeModels.get(i), i);
+
+        for (AnimationModel anim : model.model.getAnimationModels()) {
             GltfAnimation gltfAnim = new GltfAnimation();
             gltfAnim.name = anim.getName();
 
-            for (AnimationChannel channel : anim.getChannels()) {
-                AnimationSampler sampler = anim.getSamplers().get(channel.getSampler());
-                AccessorModel inputAccessor = model.model.getAccessorModels().get(sampler.getInput());
-                AccessorModel outputAccessor = model.model.getAccessorModels().get(sampler.getOutput());
+            for (AnimationModel.Channel channel : anim.getChannels()) {
+                AnimationModel.Sampler sampler = channel.getSampler();
+                AccessorModel inputAccessor = sampler.getInput();
+                AccessorModel outputAccessor = sampler.getOutput();
 
                 float[] keyframeTimes = GltfAccessorUtils.getFloatArray(inputAccessor);
+                float[] rawValues = GltfAccessorUtils.getFloatArray(outputAccessor);
 
+                int count = keyframeTimes.length;
                 float[][] values;
-                switch (channel.getTarget().getPath()) {
+
+                switch (channel.getPath()) {
                     case "translation", "scale" -> {
-                        float[] rawValues = GltfAccessorUtils.getFloatArray(outputAccessor);
-                        int count = keyframeTimes.length;
                         values = new float[count][3];
-                        for (int i = 0; i < count; i++) {
-                            values[i][0] = rawValues[i * 3];
-                            values[i][1] = rawValues[i * 3 + 1];
-                            values[i][2] = rawValues[i * 3 + 2];
-                        }
+                        for (int i = 0, j = 0; i < count; i++, j += 3)
+                            System.arraycopy(rawValues, j, values[i], 0, 3);
                     }
                     case "rotation" -> {
-                        float[] rawValues = GltfAccessorUtils.getFloatArray(outputAccessor);
-                        int count = keyframeTimes.length;
                         values = new float[count][4];
-                        for (int i = 0; i < count; i++) {
-                            values[i][0] = rawValues[i * 4];
-                            values[i][1] = rawValues[i * 4 + 1];
-                            values[i][2] = rawValues[i * 4 + 2];
-                            values[i][3] = rawValues[i * 4 + 3];
-                        }
+                        for (int i = 0, j = 0; i < count; i++, j += 4)
+                            System.arraycopy(rawValues, j, values[i], 0, 4);
                     }
-                    default -> throw new IllegalStateException("Unsupported animation path: " + channel.getTarget().getPath());
+                    default -> throw new IllegalStateException("Unsupported animation path: " + channel.getPath());
                 }
 
-                int nodeIndex = channel.getTarget().getNode();
-                gltfAnim.tracks.add(new GltfAnimation.AnimationTrack(nodeIndex,
-                        GltfAnimation.AnimationTrack.PathType.fromString(channel.getTarget().getPath()),
+                NodeModel nodeModel = channel.getNodeModel();
+                Integer nodeIndex = nodeIndexMap.get(nodeModel);
+                if (nodeIndex == null) throw new IllegalStateException("Node not found in model");
+
+                gltfAnim.tracks.add(new GltfAnimation.AnimationTrack(
+                        nodeIndex,
+                        GltfAnimation.AnimationTrack.PathType.fromString(channel.getPath()),
                         keyframeTimes,
-                        values));
+                        values
+                ));
             }
 
             model.animations.add(gltfAnim);
         }
     }
+
 }

@@ -11,6 +11,7 @@ import com.noodlegamer76.noodleengine.client.glitf.mesh.MeshData;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.PrimitiveData;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.VboCreator;
 import com.noodlegamer76.noodleengine.client.glitf.rendering.GltfRenderer;
+import com.noodlegamer76.noodleengine.client.glitf.skin.NodeLoader;
 import com.noodlegamer76.noodleengine.client.glitf.skin.SkinLoader;
 import com.noodlegamer76.noodleengine.client.glitf.skin.SkinUbo;
 import de.javagl.jgltf.impl.v2.GlTF;
@@ -35,9 +36,8 @@ public class GltfLoader {
             if (resourceStream == null) throw new RuntimeException("GLB file not found: " + path);
 
             GltfModel gltfModel = new GltfModelReader().readWithoutReferences(resourceStream);
-            GlTF glTF = GltfCreatorV2.create(gltfModel);
 
-            McGltf model = new McGltf(gltfModel, glTF, location);
+            McGltf model = new McGltf(gltfModel, location);
             initModel(model);
 
             return model;
@@ -58,6 +58,7 @@ public class GltfLoader {
         //load meshes and primitives into MeshData and PrimitiveData respectively
         storeMeshAndPrimitives(model);
 
+        NodeLoader.loadNodes(model);
 
         //load materials into McMaterial
         Map<Integer, McMaterial> materials = GltfMaterialUtils.loadMaterials(model);
@@ -78,6 +79,7 @@ public class GltfLoader {
         for (int i = 0; i < meshes.size(); i++) {
             MeshStorage.addMesh(model.location, meshes.get(i));
             model.meshes.add(meshes.get(i));
+            model.meshModelToMeshData.put(meshes.get(i).getMeshModel(), meshes.get(i));
 
             for (PrimitiveData prim : meshes.get(i).getPrimitives()) {
                 MeshStorage.addPrimitive(model.location, prim);

@@ -3,6 +3,7 @@ package com.noodlegamer76.noodleengine.client.glitf.skin;
 import com.noodlegamer76.noodleengine.client.glitf.McGltf;
 import de.javagl.jgltf.impl.v2.GlTF;
 import de.javagl.jgltf.impl.v2.Node;
+import de.javagl.jgltf.model.NodeModel;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
@@ -18,12 +19,11 @@ public class BindPoseUtils {
      * These matrices correspond to the node hierarchy and include translation, rotation, and scale.
      */
     public static List<Matrix4f> buildBindPoseGlobals(McGltf model) {
-        GlTF gltf = model.gltf;
-        int nodeCount = gltf.getNodes().size();
+        int nodeCount = model.nodes.size();
         List<Matrix4f> localMatrices = new ArrayList<>(nodeCount);
 
         for (int i = 0; i < nodeCount; i++) {
-            Node node = gltf.getNodes().get(i);
+            NodeModel node = model.nodes.get(i);
             float[] t = node.getTranslation() != null ? node.getTranslation() : new float[]{0,0,0};
             float[] r = node.getRotation() != null ? node.getRotation() : new float[]{0,0,0,1};
             float[] s = node.getScale() != null ? node.getScale() : new float[]{1,1,1};
@@ -38,9 +38,9 @@ public class BindPoseUtils {
         int[] parents = new int[nodeCount];
         Arrays.fill(parents, -1);
         for (int i = 0; i < nodeCount; i++) {
-            Node n = gltf.getNodes().get(i);
+            NodeModel n = model.nodes.get(i);
             if (n.getChildren() != null) {
-                for (Integer c : n.getChildren()) parents[c] = i;
+                for (NodeModel c : n.getChildren()) parents[model.nodes.indexOf(c)] = i;
             }
         }
 

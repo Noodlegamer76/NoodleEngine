@@ -1,3 +1,7 @@
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
 plugins {
     id 'eclipse'
     id 'idea'
@@ -13,6 +17,11 @@ group = mod_group_id
 
 base {
     archivesName = mod_id
+}
+
+configurations {
+    shadowLibs
+    implementation.extendsFrom shadowLibs
 }
 
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
@@ -123,6 +132,9 @@ dependencies {
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
+    shadowLibs 'de.javagl:jgltf-model:2.0.4'
+    shadowLibs 'de.javagl:jgltf-impl-v2:2.0.4'
+
     minecraftLibrary 'de.javagl:jgltf-model:2.0.4'
     minecraftLibrary 'de.javagl:jgltf-impl-v2:2.0.4'
 
@@ -170,7 +182,6 @@ tasks.named('jar', Jar).configure {
         ])
     }
 
-    // This is the preferred method to reobfuscate your jar file
     finalizedBy 'reobfJar'
 }
 
@@ -193,11 +204,73 @@ publishing {
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+shadowJar {
+    archiveClassifier.set('shadow')
+    configurations = [project.configurations.shadowLibs]
+
+    //relocate for mod compatibility
+   //relocate 'com.github.stephengold', 'com.noodlegamer76.noodleengine.libs.stephengold'
+   //relocate 'io.github.electrostat', 'com.noodlegamer76.noodleengine.libs.electrostat'
+   //relocate 'de.javagl', 'com.noodlegamer76.noodleengine.de.javagl'
+}
+
+task moveFiles {
+    doLast {
+        // Input and output files based on the shadowJar and jar archive file names
+        def inputFile = file("$buildDir/libs/" + shadowJar.archiveFileName.get())
+        def outputFile = file("$buildDir/libs/" + jar.archiveFileName.get())
+
+        // Temporary file for the updated output
+        def tempFile = file("$buildDir/libs/" + "output_temp.zip")
+
+        if (inputFile.exists() && outputFile.exists()) {
+            def sourceZip = new ZipFile(inputFile)
+            def destinationZip = new ZipFile(outputFile)
+            def zipOut = new ZipOutputStream(new FileOutputStream(tempFile))
+
+            // Copy existing contents of the destination ZIP to the temporary file
+            destinationZip.entries().each { entry ->
+                zipOut.putNextEntry(new ZipEntry(entry.getName()))
+                zipOut.write(destinationZip.getInputStream(entry).readAllBytes())
+                zipOut.closeEntry()
+            }
+
+            // Copy new files from the source ZIP that aren't already in the destination ZIP
+            sourceZip.entries().each { entry ->
+                if (destinationZip.getEntry(entry.getName()) == null) {
+                    zipOut.putNextEntry(new ZipEntry(entry.getName()))
+                    zipOut.write(sourceZip.getInputStream(entry).readAllBytes())
+                    zipOut.closeEntry()
+                } else {
+                    println "File already exists in destination ZIP: ${entry.getName()}. Skipping."
+                }
+            }
+
+            // Close all streams
+            zipOut.close()
+            sourceZip.close()
+            destinationZip.close()
+
+            // Replace the original destination file with the new one
+            if (outputFile.exists()) {
+                outputFile.delete() // Delete the old output file if it exists
+            }
+            tempFile.renameTo(outputFile) // Rename temp file to the destination file
+            inputFile.delete() // Delete the source file (inputFile) after moving
+        } else {
+            println "Input or output ZIP file not found."
+        }
+    }
+}
+
+
+build {
+    dependsOn shadowJar
+    finalizedBy moveFiles
 }
 
 mixin {
     add sourceSets.main, 'mixins.noodleengine.refmap.json'
     config 'noodleengine.mixins.json'
 }
+
