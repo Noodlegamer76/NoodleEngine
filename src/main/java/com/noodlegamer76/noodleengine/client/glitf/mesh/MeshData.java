@@ -6,6 +6,7 @@ import com.noodlegamer76.noodleengine.client.glitf.rendering.GltfRenderer;
 import com.noodlegamer76.noodleengine.client.glitf.skin.SkinUbo;
 import de.javagl.jgltf.impl.v2.Mesh;
 import de.javagl.jgltf.model.MeshModel;
+import de.javagl.jgltf.model.NodeModel;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ public class MeshData {
     private final ResourceLocation meshLocation;
     private final McGltf model;
     private final MeshModel meshModel;
+    private MeshNodeHierarchy hierarchy;
     public final List<SkinUbo> availableSkins = new ArrayList<>();
 
     public MeshData(McGltf model, MeshModel meshModel, List<PrimitiveData> primitives, ResourceLocation meshLocation) {
@@ -39,5 +41,13 @@ public class MeshData {
 
     public MeshModel getMeshModel() {
         return meshModel;
+    }
+
+    public MeshNodeHierarchy getHierarchy() {
+        return hierarchy;
+    }
+
+    public void setHierarchy(MeshNodeHierarchy hierarchy) {
+        this.hierarchy = hierarchy;
     }
 }

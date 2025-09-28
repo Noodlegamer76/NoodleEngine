@@ -4,22 +4,17 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.noodlegamer76.noodleengine.client.glitf.McGltf;
 import com.noodlegamer76.noodleengine.client.glitf.animation.AnimationPlayer;
 import com.noodlegamer76.noodleengine.event.ShaderRegistry;
-import de.javagl.jgltf.impl.v2.Skin;
 import de.javagl.jgltf.model.AccessorModel;
 import de.javagl.jgltf.model.NodeModel;
 import de.javagl.jgltf.model.SkinModel;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL31;
 
+import javax.annotation.Nullable;
 import java.nio.FloatBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.lwjgl.opengl.GL31C.*;
 
@@ -31,11 +26,21 @@ public class SkinUbo {
     private final McGltf model;
     private final List<Matrix4f> inverseBindMatrices;
 
-    public SkinUbo(McGltf model, SkinModel skin, int nodeCount) {
+    public SkinUbo(McGltf model, @Nullable SkinModel skin, int nodeCount) {
         this.maxJoints = nodeCount;
         this.skin = skin;
         this.model = model;
         this.buffer = BufferUtils.createFloatBuffer(nodeCount * 16);
+
+        uboId = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL31.GL_UNIFORM_BUFFER, uboId);
+        GL15.glBufferData(GL31.GL_UNIFORM_BUFFER, (long) nodeCount * 16 * Float.BYTES, GL15.GL_DYNAMIC_DRAW);
+
+        if (skin == null) {
+            inverseBindMatrices = null;
+            uploadNoSkin();
+            return;
+        }
 
         if (skin.getInverseBindMatrices() != null) {
             AccessorModel accessor = skin.getInverseBindMatrices();
@@ -58,10 +63,6 @@ public class SkinUbo {
                 this.inverseBindMatrices.add(new Matrix4f().identity());
             }
         }
-
-        uboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL31.GL_UNIFORM_BUFFER, uboId);
-        GL15.glBufferData(GL31.GL_UNIFORM_BUFFER, (long) nodeCount * 16 * Float.BYTES, GL15.GL_DYNAMIC_DRAW);
     }
 
     public void bind() {
@@ -85,6 +86,10 @@ public class SkinUbo {
                                Map<Integer, AnimationPlayer.Transform> animTransforms,
                                int[] nodeParents,
                                int skinnedNodeIndex) {
+        if (skin == null) {
+            return;
+        }
+
         // ensure render-thread
         if (!RenderSystem.isOnRenderThread()) {
             RenderSystem.recordRenderCall(() -> uploadAnimated(bindLocalPose, animTransforms, nodeParents, skinnedNodeIndex));
@@ -156,9 +161,13 @@ public class SkinUbo {
     /**
      * Upload static skinning matrices (no animation).
      */
-    public void upload(List<Matrix4f> nodeGlobalTransforms, int skinnedNodeIndex) {
+    public void uploadRigged(List<Matrix4f> nodeGlobalTransforms, int skinnedNodeIndex) {
+        if (skin == null) {
+            return;
+        }
+
         if (!RenderSystem.isOnRenderThread()) {
-            RenderSystem.recordRenderCall(() -> upload(nodeGlobalTransforms, skinnedNodeIndex));
+            RenderSystem.recordRenderCall(() -> uploadRigged(nodeGlobalTransforms, skinnedNodeIndex));
             return;
         }
 
@@ -189,6 +198,28 @@ public class SkinUbo {
 
         uploadSkinningToGpu(skinning);
     }
+
+    //doesnt work rn and i need to change the entire gltf loading process just to get it working properly
+    //if you are looking for how this mod works just ignore this or it will confuse you
+    //oh and i also need to change the entire renderign system to batch differently
+    public void uploadNoSkin() {
+        RenderSystem.assertOnRenderThread();
+        buffer.clear();
+        bind();
+
+        List<Matrix4f> globalMatrices = model.bindGlobalPose;
+
+        List<Matrix4f> copies = new ArrayList<>(globalMatrices.size());
+        for (int i = 0; i < globalMatrices.size(); i++) {
+            Matrix4f copy = new Matrix4f(globalMatrices.get(i));
+            copy.translate(10000000, 0, 0);
+            copies.add(copy);
+        }
+        // Upload to GPU
+        uploadSkinningToGpu(copies);
+    }
+
+
 
     /**
      * Shared GPU upload for any list of skinning matrices.

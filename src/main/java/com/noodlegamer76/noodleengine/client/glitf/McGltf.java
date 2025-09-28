@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.noodlegamer76.noodleengine.client.glitf.animation.GltfAnimation;
 import com.noodlegamer76.noodleengine.client.glitf.material.McMaterial;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.MeshData;
+import com.noodlegamer76.noodleengine.client.glitf.mesh.MeshNodeHierarchy;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.PrimitiveData;
 import com.noodlegamer76.noodleengine.client.glitf.rendering.GltfVbo;
 import com.noodlegamer76.noodleengine.client.glitf.skin.SkinUbo;
@@ -13,6 +14,7 @@ import de.javagl.jgltf.impl.v2.Node;
 import de.javagl.jgltf.model.GltfModel;
 import de.javagl.jgltf.model.MeshModel;
 import de.javagl.jgltf.model.NodeModel;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -37,6 +39,7 @@ public class McGltf {
     public final List<NodeModel> nodes = new ArrayList<>();
     public final Map<MeshModel, MeshData> meshModelToMeshData = new HashMap<>();
     public final Map<MeshData, NodeModel> meshToNode = new HashMap<>();
+    public final Map<MeshData, MeshNodeHierarchy> meshNodeHierarchy = new HashMap<>();
 
     public McGltf(GltfModel model, ResourceLocation location) {
         this.model = model;

@@ -5,6 +5,7 @@ import com.noodlegamer76.noodleengine.client.glitf.mesh.MeshData;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.PrimitiveData;
 import com.noodlegamer76.noodleengine.client.glitf.mesh.Vertex;
 import de.javagl.jgltf.impl.v2.Mesh;
+import de.javagl.jgltf.impl.v2.Node;
 import de.javagl.jgltf.model.*;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Vector2f;
@@ -19,6 +20,7 @@ public class GltfPrimitiveUtils {
 
     public static List<MeshData> modelToMeshList(McGltf model) {
         List<MeshData> meshes = new ArrayList<>();
+
         for (int i = 0; i < model.model.getMeshModels().size(); i++) {
             MeshModel meshModel = model.model.getMeshModels().get(i);
 
@@ -102,8 +104,6 @@ public class GltfPrimitiveUtils {
                     int idx = i * 4 + j;
                     weights[j] = idx < rawWeights.length ? rawWeights[idx] : 0f;
                 }
-            } else {
-                weights[0] = 1f;
             }
 
             // Normalize weights

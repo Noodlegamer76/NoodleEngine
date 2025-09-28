@@ -20,10 +20,11 @@ public class SkinLoader {
         if (model.model.getSkinModels() == null) return;
 
         List<Matrix4f> bindGlobals = BindPoseUtils.buildBindPoseGlobals(model);
-        model.bindGlobalPose.clear();
         model.bindGlobalPose.addAll(bindGlobals);
 
+
         List<SkinUbo> skinUbos = new ArrayList<>();
+
         for (SkinModel skin : model.model.getSkinModels()) {
             int nodeCount = model.nodes.size();
             SkinUbo ubo = new SkinUbo(model, skin, nodeCount);
@@ -46,6 +47,15 @@ public class SkinLoader {
             }
         }
 
+        for (MeshData mesh : model.meshes) {
+            if (mesh.availableSkins.isEmpty()) {
+                int nodeCount = model.nodes.size();
+                SkinUbo ubo = new SkinUbo(model, null, nodeCount);
+                mesh.availableSkins.add(ubo);
+                model.skins.add(ubo);
+            }
+        }
+
         model.skinsFromMesh.putAll(skins);
 
         for (NodeModel node : model.nodes) {
@@ -53,7 +63,7 @@ public class SkinLoader {
                 SkinUbo skin = skinUbos.get(model.model.getSkinModels().indexOf(node.getSkinModel()));
 
                 int nodeIndex = model.nodes.indexOf(node);
-                skin.upload(bindGlobals, nodeIndex);
+                skin.uploadRigged(bindGlobals, nodeIndex);
             }
         }
     }
